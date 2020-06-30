@@ -471,12 +471,12 @@ def evaluate(options):
     elif options.dataset == 'comparison':
         image_list = ['test/comparison/' + str(index) + '_image_0.png' for index in [65, 11, 24]]
         camera = np.zeros(6)
-        camera[0] = 587
-        camera[1] = 587
-        camera[2] = 320
-        camera[3] = 240
-        camera[4] = 640
-        camera[5] = 480
+        camera[0] = 0
+        camera[1] = 0
+        camera[2] = 640
+        camera[3] = 360
+        camera[4] = 1280
+        camera[5] = 720
         dataset = InferenceDataset(options, config, image_list=image_list, camera=camera)
     elif 'inference' in options.dataset:
         image_list = glob.glob(options.customDataFolder + '/*.png') + glob.glob(options.customDataFolder + '/*.jpg')
@@ -487,6 +487,7 @@ def evaluate(options):
                     values = [float(token.strip()) for token in line.split(' ') if token.strip() != '']
                     for c in range(6):
                         camera[c] = values[c]
+                        
                         continue
                     break
                 pass
@@ -552,6 +553,8 @@ def evaluate(options):
     for name, detector in detectors:
         statistics = [[], [], [], []]
         for sampleIndex, sample in enumerate(data_iterator):
+            image_name = image_list[sampleIndex].split("/")[-1].split('.')[0]
+            
             if options.testingIndex >= 0 and sampleIndex != options.testingIndex:
                 if sampleIndex > options.testingIndex:
                     break
@@ -560,7 +563,6 @@ def evaluate(options):
             camera = sample[30][0].cuda()
             for indexOffset in [0, ]:
                 images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks, gt_parameters, gt_depth, extrinsics, planes, gt_segmentation = sample[indexOffset + 0].cuda(), sample[indexOffset + 1].numpy(), sample[indexOffset + 2].cuda(), sample[indexOffset + 3].cuda(), sample[indexOffset + 4].cuda(), sample[indexOffset + 5].cuda(), sample[indexOffset + 6].cuda(), sample[indexOffset + 7].cuda(), sample[indexOffset + 8].cuda(), sample[indexOffset + 9].cuda(), sample[indexOffset + 10].cuda(), sample[indexOffset + 11].cuda()
-
                 masks = (gt_segmentation == torch.arange(gt_segmentation.max() + 1).cuda().view(-1, 1, 1)).float()
                 input_pair.append({'image': images, 'depth': gt_depth, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'camera': camera, 'plane': planes[0], 'masks': masks, 'mask': gt_masks})
                 continue
@@ -587,13 +589,16 @@ def evaluate(options):
                     continue
             else:
                 for c in range(len(detection_pair)):
-                    np.save(options.test_dir + '/' + str(sampleIndex % 500) + '_plane_parameters_' + str(c) + '.npy', detection_pair[c]['detection'][:, 6:9])
-                    np.save(options.test_dir + '/' + str(sampleIndex % 500) + '_plane_masks_' + str(c) + '.npy', detection_pair[c]['masks'][:, 80:560])
+                    # print('=========================================',image_name)
+                    # np.save(options.test_dir + '/' + str(sampleIndex % 500) + '_plane_parameters_' + str(c) + '.npy', detection_pair[c]['detection'][:, 6:9])
+                    # np.save(options.test_dir + '/' + str(sampleIndex % 500) + '_plane_masks_' + str(c) + '.npy', detection_pair[c]['masks'][:, 80:560])
+                    np.save(options.test_dir + '/' + image_name + '_plane_parameters_' + str(c) + '.npy', detection_pair[c]['detection'][:, 6:9])
+                    np.save(options.test_dir + '/' + image_name + '_plane_masks_' + str(c) + '.npy', detection_pair[c]['masks'][:, 80:560])
                     continue
                 pass
                             
             if sampleIndex < 30 or options.debug or options.dataset != '':
-                visualizeBatchPair(options, config, input_pair, detection_pair, indexOffset=sampleIndex % 500, suffix='_' + name + options.modelType, write_ply=options.testingIndex >= 0, write_new_view=options.testingIndex >= 0 and 'occlusion' in options.suffix)
+                visualizeBatchPair(image_name,options, config, input_pair, detection_pair, indexOffset=sampleIndex % 500, suffix='_' + name + options.modelType, write_ply=options.testingIndex >= 0, write_new_view=options.testingIndex >= 0 and 'occlusion' in options.suffix)
                 pass
             if sampleIndex >= options.numTestingImages:
                 break
@@ -659,3 +664,7 @@ if __name__ == '__main__':
         pass
 
     evaluate(args)
+
+
+# python evaluate.py --methods=f --suffix=warping_refine --dataset=inference --customDataFolder=example_images
+# 587 587 320 240 640 480

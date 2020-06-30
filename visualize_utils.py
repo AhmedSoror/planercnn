@@ -16,7 +16,6 @@ from models.model import detection_layer, unmold_detections
 from models.modules import *
 from utils import *
 
-
 def tileImages(image_list, padding_x=5, padding_y=5, background_color=0):
     """Tile images"""
     height = image_list[0][0].shape[0]
@@ -81,10 +80,10 @@ def visualizeBatchDeMoN(options, input_dict, results, indexOffset=0, prefix='', 
         continue
     return
 
-def visualizeBatchPair(options, config, inp_pair, detection_pair, indexOffset=0, prefix='', suffix='', write_ply=False, write_new_view=False):
+def visualizeBatchPair(image_name,options, config, inp_pair, detection_pair, indexOffset=0, prefix='', suffix='', write_ply=False, write_new_view=False):
     detection_images = []    
     for pair_index, (input_dict, detection_dict) in enumerate(zip(inp_pair, detection_pair)):
-        image_dict = visualizeBatchDetection(options, config, input_dict, detection_dict, indexOffset=indexOffset, prefix=prefix, suffix='_' + str(pair_index), prediction_suffix=suffix, write_ply=write_ply, write_new_view=write_new_view)
+        image_dict = visualizeBatchDetection(image_name,options, config, input_dict, detection_dict, indexOffset=indexOffset, prefix=prefix, suffix='_' + str(pair_index), prediction_suffix=suffix, write_ply=write_ply, write_new_view=write_new_view)
         detection_images.append(image_dict['detection'])
         continue
     detection_image = tileImages([detection_images])
@@ -168,7 +167,7 @@ def visualizeBatchRefinement(options, config, input_dict, results, indexOffset=0
         pass
     return
 
-def visualizeBatchDetection(options, config, input_dict, detection_dict, indexOffset=0, prefix='', suffix='', prediction_suffix='', write_ply=False, write_new_view=False):
+def visualizeBatchDetection(image_name,options, config, input_dict, detection_dict, indexOffset=0, prefix='', suffix='', prediction_suffix='', write_ply=False, write_new_view=False):
     image_dict = {}
     images = input_dict['image'].detach().cpu().numpy().transpose((0, 2, 3, 1))
     images = unmold_image(images, config)
@@ -216,6 +215,7 @@ def visualizeBatchDetection(options, config, input_dict, detection_dict, indexOf
             mask = cv2.resize(mask, (box[3] - box[1], box[2] - box[0]))
             segmentation_image[box[0]:box[2], box[1]:box[3]] = np.minimum(segmentation_image[box[0]:box[2], box[1]:box[3]] + np.expand_dims(mask, axis=-1) * np.random.randint(255, size=(3, ), dtype=np.int32), 255)
             continue
+        # /////////////////////////////////////////////////////////////////////////////
         cv2.imwrite(options.test_dir + '/' + str(indexOffset) + '_segmentation' + suffix + '.png', segmentation_image.astype(np.uint8)[80:560])
         if config.NUM_PARAMETER_CHANNELS > 0 and not config.OCCLUSION:
             depth_image = np.zeros((image.shape[0], image.shape[1]))
@@ -266,7 +266,7 @@ def visualizeBatchDetection(options, config, input_dict, detection_dict, indexOf
             pass
         instance_image, normal_image, depth_image = draw_instances(config, image, depth_gt, detections[:, :4], detection_masks > 0.5, detections[:, 4].astype(np.int32), detections[:, 6:], detections[:, 5], draw_mask=True, transform_planes=False, detection_flags=detection_flags)
         image_dict['detection'] = instance_image
-        cv2.imwrite(options.test_dir + '/' + str(indexOffset) + '_segmentation' + suffix + prediction_suffix + '.png', instance_image[80:560])
+        cv2.imwrite(options.test_dir + '/' + str(image_name) + '_segmentation' + suffix + prediction_suffix + '.png', instance_image[80:560])
     else:
         image_dict['detection'] = np.zeros(image.shape, dtype=image.dtype)
         pass
